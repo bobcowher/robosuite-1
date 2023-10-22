@@ -96,12 +96,3 @@ class Critic(nn.Module):
         for name, param in self.named_parameters():
             print(name, param.data)
 
-def observation_to_tensor(obs):
-    # Convert each array in the ordered dictionary to a flattened numpy array
-    flattened_arrays = [np.array(item).flatten() for item in obs.values()]
-
-    # Concatenate all the flattened arrays to get a single array
-    concatenated_array = np.concatenate(flattened_arrays)
-
-    # Convert the numpy array to a PyTorch tensor
-    return torch.tensor(concatenated_array, dtype=torch.float32)

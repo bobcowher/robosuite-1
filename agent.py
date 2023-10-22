@@ -8,14 +8,13 @@ import time
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
-from model import observation_to_tensor
 
 
 class Agent(object):
 
     def __init__(self, state_dim, action_dim, max_action, batch_size, policy_freq, discount, max_episode_steps=1000, tau=0.005, eval_freq=100,
                  policy_noise=0.2, expl_noise=0.1, noise_clip=0.5, start_timesteps=1e4, device=None, env_name=None,
-                 replay_buffer_max_size=1000000, learning_rate=0.001, lr_decay_factor=1, min_learning_rate=0.00001, decay_step=1000):
+                 replay_buffer_max_size=100000, learning_rate=0.001, lr_decay_factor=1, min_learning_rate=0.00001, decay_step=1000):
         """
 
         :param state_dim:
@@ -106,9 +105,9 @@ class Agent(object):
 
     def select_action(self, state):
         # state = torch.Tensor(state.reshape(1, -1)).to(self.device)
-        if not isinstance(state, torch.Tensor):
-            print(state)
-            exit(1)
+        # if not isinstance(state, torch.Tensor):
+        #     print(state)
+        #     exit(1)
 
         state = state.to(self.device)
         return self.actor(state).cpu().data.numpy().flatten()
@@ -116,14 +115,13 @@ class Agent(object):
     def evaluate_policy(self, env, eval_episodes=10):
         avg_reward = 0.
         for _ in range(eval_episodes):
-            obs = observation_to_tensor(env.reset())
+            obs = env.reset()
             done = False
             max_eval_timesteps = 100
             current_timestep = 0
             while not done:
                 action = self.select_action(obs)
                 obs, reward, done, _ = env.step(action)
-                obs = observation_to_tensor(obs)
                 avg_reward += reward
 
                 if current_timestep > max_eval_timesteps:
@@ -168,7 +166,7 @@ class Agent(object):
                     writer.add_scalar(f'{self.env_name} - Returns Per Step: {batch_identifier}', (episode_reward / episode_timesteps), total_timesteps)
 
                 # When the training step is done, we reset the state of the environment
-                obs = observation_to_tensor(env.reset())
+                obs = env.reset()
 
 
 
@@ -191,7 +189,7 @@ class Agent(object):
             if total_timesteps < self.start_timesteps:
                 action = np.random.randn(8) * 0.1
             else:  # After 10000 timesteps, we switch to the model
-                action = self.select_action(np.array(obs))
+                action = self.select_action(obs)
                 # If the explore_noise parameter is not 0, we add noise to the action and we clip it
                 if self.expl_noise != 0:
                     action = (action + np.random.normal(0, self.expl_noise, size=self.action_dim)).clip(
@@ -199,8 +197,6 @@ class Agent(object):
 
             # The agent performs the action in the environment, then reaches the next state and receives the reward
             new_obs, reward, done, _ = env.step(action)
-
-            new_obs = observation_to_tensor(new_obs)
 
             # We check if the episode is done
             done_bool = 0 if episode_timesteps + 1 == self.max_episode_steps else float(done)
@@ -224,10 +220,10 @@ class Agent(object):
 
     def test(self, env, max_timesteps):
 
-        print(f"Printing actor model")
-        self.actor.print_model()
-        print(f"Printing critic model")
-        self.actor.print_model()
+        # print(f"Printing actor model")
+        # self.actor.print_model()
+        # print(f"Printing critic model")
+        # self.actor.print_model()
         # print(f"Sleeping for 30 seconds to view...")
         # time.sleep(30)
 
@@ -246,7 +242,7 @@ class Agent(object):
                                                                                   episode_reward))
 
                 # When the training step is done, we reset the state of the environment
-                obs = observation_to_tensor(env.reset())
+                obs = env.reset()
 
                 # Set the Done to False
                 done = False
@@ -257,16 +253,15 @@ class Agent(object):
                 episode_num += 1
 
 
-            action = self.select_action(np.array(obs))
+            action = self.select_action(obs)
 
             # If the explore_noise parameter is not 0, we add noise to the action and we clip it
             if self.expl_noise != 0:
-                action = (action + np.random.normal(0, self.expl_noise, size=env.action_space.shape[0])).clip(
-                    env.action_space.low, env.action_space.high)
+                action = (action + np.random.normal(0, self.expl_noise, size=self.action_dim)).clip(0, 1)
 
             # The agent performs the action in the environment, then reaches the next state and receives the reward
             new_obs, reward, done, _ = env.step(action)
-            new_obs = observation_to_tensor(obs)
+            new_obs = obs
             print(f"Step reward was {reward}")
 
             # We check if the episode is done
