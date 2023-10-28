@@ -3,3 +3,4 @@ torch
 tensorboard
 packaging
 robosuite
+h5py

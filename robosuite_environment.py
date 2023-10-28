@@ -2,11 +2,10 @@ import robosuite as suite
 import numpy as np
 import torch
 
-class RoboSuiteWrapper(suite.environments.manipulation.lift.Lift):
+class RoboSuiteWrapper:
 
     def __init__(self, env_name, test=False):
-        super().__init__(RoboSuiteWrapper, env_name, robots=["Panda"], cont)
-        if test == False:
+        if not test:
             self.env = suite.make(
                 env_name,  # Environment
                 robots=["Panda"],  # Use two Panda robots
@@ -16,9 +15,7 @@ class RoboSuiteWrapper(suite.environments.manipulation.lift.Lift):
                 # has_offscreen_renderer=True,        # No offscreen rendering
                 control_freq=20,  # Control frequency
             )
-            print(type(self.env))
         else:
-            print("Running in test mode.")
             self.env = suite.make(
                 env_name,  # Environment
                 robots=["Panda"],  # Use two Panda robots
@@ -28,7 +25,7 @@ class RoboSuiteWrapper(suite.environments.manipulation.lift.Lift):
                 has_offscreen_renderer=True,        # No offscreen rendering
                 control_freq=20,  # Control frequency
             )
-            print(type(self.env))
+
 
 
     def step(self, action):
@@ -51,3 +48,6 @@ class RoboSuiteWrapper(suite.environments.manipulation.lift.Lift):
 
         # Convert the numpy array to a PyTorch tensor
         return torch.tensor(concatenated_array, dtype=torch.float32)
+
+    def render(self):
+        self.env.render()

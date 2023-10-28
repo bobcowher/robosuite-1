@@ -234,7 +234,9 @@ class Agent(object):
 
         while total_timesteps < max_timesteps:
             time.sleep(0.07) # Slow down enough to see the environment run.
+            env.render()
             # If the episode is done
+
             if done:
                 # If we are not at the very beginning, we start the training process of the model
                 if total_timesteps != 0:

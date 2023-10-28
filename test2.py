@@ -15,14 +15,13 @@ if not os.path.exists("./results"):
     os.makedirs("./results")
 if not os.path.exists("./models"):
     os.makedirs("./models")
+
 if not os.path.exists("./plots"):
     os.makedirs("./plots")
 
 env_name = "Lift"
 
-env = RoboSuiteWrapper(env_name)
-
-
+env = RoboSuiteWrapper(env_name, test=True)
 
 # Reset the environment and get environment params
 obs = env.reset()
@@ -39,4 +38,4 @@ agent = Agent(state_dim, action_dim, max_action=max_action, batch_size=16, polic
             noise_clip=0.5, start_timesteps=1e6, learning_rate=0.0001, env_name=env_name, lr_decay_factor=0.999)
 
 
-stats = agent.train(env, max_timesteps=2e7, batch_identifier=0)
+agent.test(env, max_timesteps=2e7)
