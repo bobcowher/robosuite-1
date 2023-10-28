@@ -5,6 +5,9 @@ import torch
 class RoboSuiteWrapper:
 
     def __init__(self, env_name, test=False):
+        self.max_episode_steps = 100
+        self.current_episode_step = 0
+
         if not test:
             self.env = suite.make(
                 env_name,  # Environment
@@ -31,9 +34,17 @@ class RoboSuiteWrapper:
     def step(self, action):
         observation, reward, done, info = self.env.step(action)
         observation = self.observation_to_tensor(observation)
+
+        # Increment timesteps and set done if max timesteps reached
+        self.current_episode_step += 1
+
+        if self.current_episode_step == self.max_episode_steps:
+            done = True
+
         return observation, reward, done, info
 
     def reset(self):
+        self.current_episode_step = 0
         observation = self.env.reset()
         observation = self.observation_to_tensor(observation)
         return observation

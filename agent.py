@@ -12,7 +12,7 @@ from datetime import datetime
 
 class Agent(object):
 
-    def __init__(self, state_dim, action_dim, max_action, batch_size, policy_freq, discount, max_episode_steps=1000, tau=0.005, eval_freq=100,
+    def __init__(self, state_dim, action_dim, max_action, batch_size, policy_freq, discount, tau=0.005, eval_freq=100,
                  policy_noise=0.2, expl_noise=0.1, noise_clip=0.5, start_timesteps=1e4, device=None, env_name=None,
                  replay_buffer_max_size=100000, learning_rate=0.001, lr_decay_factor=1, min_learning_rate=0.00001, decay_step=1000):
         """
@@ -61,8 +61,6 @@ class Agent(object):
         self.decay_step = decay_step
         self.lr_decay_factor = lr_decay_factor
         self.initial_learning_rate = learning_rate
-        self.max_episode_steps = max_episode_steps
-
 
         # self.start_timesteps = start_timesteps
         if critic_model_loaded and actor_model_loaded:
@@ -199,7 +197,7 @@ class Agent(object):
             new_obs, reward, done, _ = env.step(action)
 
             # We check if the episode is done
-            done_bool = 0 if episode_timesteps + 1 == self.max_episode_steps else float(done)
+            done_bool = 0 if episode_timesteps + 1 == env.max_episode_steps else float(done)
 
             # We increase the total reward
             episode_reward += reward
@@ -267,7 +265,7 @@ class Agent(object):
             print(f"Step reward was {reward}")
 
             # We check if the episode is done
-            done_bool = 0 if episode_timesteps + 1 == self.max_episode_steps else float(done)
+            done_bool = 0 if episode_timesteps + 1 == env.max_episode_steps else float(done)
 
             # We increase the total reward
             episode_reward += reward
