@@ -62,44 +62,26 @@ class Agent(object):
         self.lr_decay_factor = lr_decay_factor
         self.initial_learning_rate = learning_rate
 
-        # self.start_timesteps = start_timesteps
-        if critic_model_loaded and actor_model_loaded:
-            self.start_timesteps = 0
-            print(f"Model successfully loaded. Setting startup timesteps to 0")
-        else:
-            self.start_timesteps = start_timesteps
-            print(f"No model loaded. Setting startup timesteps to {start_timesteps}")
+        self.start_timesteps = start_timesteps
+        # if critic_model_loaded and actor_model_loaded:
+        #     self.start_timesteps = 0
+        #     print(f"Model successfully loaded. Setting startup timesteps to 0")
+        # else:
+        #     self.start_timesteps = start_timesteps
+        #     print(f"No model loaded. Setting startup timesteps to {start_timesteps}")
+        #
+        # print(f"Configured agent with device: {self.device}")
 
-        print(f"Configured agent with device: {self.device}")
+    def train_from_buffer(self, filename, epochs):
+        print(f"Beginning model learning from saved buffer {filename}.pkl")
+        self.replay_buffer.load_from_disk(filename=filename)
 
-    def adjust_learning_rate(self, total_timesteps):
+        self.learn(replay_buffer=self.replay_buffer, epochs=epochs)
 
-        """
-        Adjusts the learning rate based on the exponential decay formula.
+        self.actor.save_the_model()
+        self.critic.save_the_model()
+        print(f"End model learning from saved buffer {filename}.pkl. Model saved.")
 
-        The learning rate is decayed using the formula:
-            learning_rate = initial_learning_rate * (lr_decay_factor ** (total_timesteps / decay_step))
-
-        This ensures that as training progresses and total_timesteps increases,
-        the learning rate decreases exponentially based on the specified decay_factor
-        and decay_step values.
-
-        Attributes:
-            initial_learning_rate (float): The starting learning rate before any decay.
-            lr_decay_factor (float): Factor by which the learning rate is decayed, typically between 0 and 1.
-            decay_step (int): Specifies how often the decay should be applied relative to total_timesteps.
-            total_timesteps (int): Cumulative number of timesteps the agent has been trained on.
-        """
-        if self.learning_rate > self.min_learning_rate:
-            print(f"LR before adjustment: {self.learning_rate}")
-            self.learning_rate = self.initial_learning_rate * (self.lr_decay_factor ** (total_timesteps / self.decay_step))
-            print(f"LR after adjustment: {self.learning_rate}")
-
-            for param_group in self.critic_optimizer.param_groups:
-                param_group['lr'] = self.learning_rate
-
-            for param_group in self.actor_optimizer.param_groups:
-                param_group['lr'] = self.learning_rate
 
     def select_action(self, state):
         # state = torch.Tensor(state.reshape(1, -1)).to(self.device)
@@ -158,7 +140,7 @@ class Agent(object):
                     print(f"Total Timesteps: {total_timesteps} Episode Num: {episode_num} Reward: {episode_reward} "
                           f"Learning Rate: {self.learning_rate:.10f} Batch: {batch_identifier}")
 
-                    self.learn(replay_buffer=self.replay_buffer, epochs=10)
+                    self.learn(replay_buffer=self.replay_buffer, epochs=100)
                     stats['Returns'].append(episode_reward)
                     writer.add_scalar(f'{self.env_name} - Returns: {batch_identifier}', episode_reward, total_timesteps)
                     writer.add_scalar(f'{self.env_name} - Returns Per Step: {batch_identifier}', (episode_reward / episode_timesteps), total_timesteps)
@@ -185,6 +167,8 @@ class Agent(object):
 
             # Before 10000 timesteps, we play random actions
             if total_timesteps < self.start_timesteps:
+                action = np.random.randn(8) * 0.1
+            elif 0 <= total_timesteps % 1000 <= 100:
                 action = np.random.randn(8) * 0.1
             else:  # After 10000 timesteps, we switch to the model
                 action = self.select_action(obs)

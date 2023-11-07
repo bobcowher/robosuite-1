@@ -20,7 +20,20 @@ if not os.path.exists("./plots"):
 
 env_name = "Lift"
 
-env = RoboSuiteWrapper(env_name)
+env = suite.make(
+    env_name,  # Environment
+    robots=["Panda"],  # Use two Panda robots
+    controller_configs=suite.load_controller_config(default_controller="JOINT_VELOCITY"),  # Controller
+    # controller_configs=suite.load_controller_config(default_controller="OSC_POSE"),
+    has_renderer=False,  # Enable rendering
+    use_camera_obs=False,
+    # render_camera="sideview",           # Camera view
+    # has_offscreen_renderer=True,        # No offscreen rendering
+    reward_shaping=True,
+    control_freq=20,  # Control frequency
+)
+
+env = RoboSuiteWrapper(env)
 
 
 
@@ -28,15 +41,18 @@ env = RoboSuiteWrapper(env_name)
 obs = env.reset()
 
 state_dim = obs.shape[0]
-action_dim = 8
+action_dim = env.action_dim
 max_action = 1
+
+print(action_dim)
 # min_action, max_action = env.action_spec
 #
 # print(max_action)
 
 agent = Agent(state_dim, action_dim, max_action=max_action, batch_size=16, policy_freq=2,
             discount=0.99, device=device, tau=0.005, policy_noise=0.2, expl_noise=0.1,
-            noise_clip=0.5, start_timesteps=1e6, learning_rate=0.0001, env_name=env_name, lr_decay_factor=0.999)
+            noise_clip=0.5, start_timesteps=5e3, learning_rate=0.00001, env_name=env_name, lr_decay_factor=0.999)
 
+# agent.train_from_buffer("human_feedback", epochs=10000)
 
-stats = agent.train(env, max_timesteps=2e7, batch_identifier=0)
+stats = agent.train(env, max_timesteps=2e7, batch_identifier=1)
