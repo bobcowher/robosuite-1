@@ -14,7 +14,7 @@ class Agent(object):
 
     def __init__(self, state_dim, action_dim, max_action, batch_size, policy_freq, discount, tau=0.005, eval_freq=100,
                  policy_noise=0.2, expl_noise=0.1, noise_clip=0.5, start_timesteps=1e4, device=None, env_name=None,
-                 replay_buffer_max_size=100000, learning_rate=0.001, lr_decay_factor=1, min_learning_rate=0.00001, decay_step=1000):
+                 replay_buffer_max_size=1000000, learning_rate=0.001, lr_decay_factor=1, min_learning_rate=0.00001, decay_step=1000):
         """
 
         :param state_dim:
@@ -37,7 +37,7 @@ class Agent(object):
 
         self.critic = Critic(state_dim, action_dim).to(self.device)
         self.critic_target = Critic(state_dim, action_dim).to(self.device)
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=0.001)
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=self.learning_rate)
 
         self.max_action = max_action
         self.action_dim = action_dim
@@ -62,15 +62,15 @@ class Agent(object):
         self.lr_decay_factor = lr_decay_factor
         self.initial_learning_rate = learning_rate
 
-        self.start_timesteps = start_timesteps
-        # if critic_model_loaded and actor_model_loaded:
-        #     self.start_timesteps = 0
-        #     print(f"Model successfully loaded. Setting startup timesteps to 0")
-        # else:
-        #     self.start_timesteps = start_timesteps
-        #     print(f"No model loaded. Setting startup timesteps to {start_timesteps}")
-        #
-        # print(f"Configured agent with device: {self.device}")
+        # self.start_timesteps = start_timesteps
+        if critic_model_loaded and actor_model_loaded:
+            self.start_timesteps = 0
+            print(f"Model successfully loaded. Setting startup timesteps to 0")
+        else:
+            self.start_timesteps = start_timesteps
+            print(f"No model loaded. Setting startup timesteps to {start_timesteps}")
+
+        print(f"Configured agent with device: {self.device}")
 
     def train_from_buffer(self, filename, epochs):
         print(f"Beginning model learning from saved buffer {filename}.pkl")
@@ -124,6 +124,7 @@ class Agent(object):
 
         total_timesteps = 0
         timesteps_since_eval = 0
+        best_episode_reward = 0
         episode_num = 0
         done = True
         t0 = time.time()
@@ -145,10 +146,13 @@ class Agent(object):
                     writer.add_scalar(f'{self.env_name} - Returns: {batch_identifier}', episode_reward, total_timesteps)
                     writer.add_scalar(f'{self.env_name} - Returns Per Step: {batch_identifier}', (episode_reward / episode_timesteps), total_timesteps)
 
+                    if episode_reward > best_episode_reward:
+                        best_episode_reward = episode_reward
+                        self.critic.save_the_model(weights_filename='critic_best.pt')
+                        self.actor.save_the_model(weights_filename='actor_best.pt')
+
                 # When the training step is done, we reset the state of the environment
                 obs = env.reset()
-
-
 
                 writer.flush()
 
@@ -161,14 +165,12 @@ class Agent(object):
                 episode_num += 1
 
                 if episode_num % 10 == 0:
-                    average_returns = np.mean(stats['Returns'][-100:])
-                    stats['AvgReturns'].append(average_returns)
                     self.save()
 
             # Before 10000 timesteps, we play random actions
             if total_timesteps < self.start_timesteps:
                 action = np.random.randn(8) * 0.1
-            elif 0 <= total_timesteps % 1000 <= 100:
+            elif 0 <= total_timesteps % 500 <= 50:
                 action = np.random.randn(8) * 0.1
             else:  # After 10000 timesteps, we switch to the model
                 action = self.select_action(obs)

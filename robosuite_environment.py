@@ -10,7 +10,7 @@ class RoboSuiteWrapper(Wrapper):
 
         super().__init__(env)
 
-        self.max_episode_steps = 100
+        self.max_episode_steps = 200
         self.current_episode_step = 0
 
         # if not test:

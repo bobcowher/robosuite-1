@@ -25,6 +25,7 @@ class Actor(nn.Module):
 
     def load_the_model(self, weights_filename='actor_latest.pt'):
         weights_filename = "models/" + weights_filename
+
         try:
             self.load_state_dict(torch.load(weights_filename))
             print(f"Successfully loaded weights file {weights_filename}")

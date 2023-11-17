@@ -10,7 +10,6 @@ class ReplayBuffer(object):
         self.iteration = 0
         self.save_dir = "saved_buffers"
 
-        self.load_from_disk()
 
     def add(self, transition):
         if len(self.storage) < self.max_size:
@@ -18,38 +17,6 @@ class ReplayBuffer(object):
         else:
             self.storage.remove(self.storage[0])
             self.storage.append(transition)
-
-        if self.iteration % 1000 == 0:
-            self.save_to_disk()
-
-    def save_to_disk(self, save_file="latest"):
-
-        if not os.path.exists(self.save_dir):
-            os.makedirs(self.save_dir)
-
-        # Define the path to save the buffer
-        save_path = os.path.join(self.save_dir, f"{save_file}.pkl")
-
-        # Save the ReplayBuffer object to the file
-        with open(save_path, 'wb') as f:
-            pickle.dump(self.storage, f)
-
-    def load_from_disk(self, filename='latest'):
-        latest_path = os.path.join(self.save_dir, f"{filename}.pkl")
-
-
-        if os.path.exists(latest_path):
-            try:
-                print(f"Attempting to load replay buffer from {latest_path}")
-                with open(latest_path, 'rb') as f:
-                    self.storage = pickle.load(f)
-
-                print(f"Loaded ReplayBuffer from {latest_path}")
-                print(f"Current buffer size is {len(self.storage)}")
-
-            except:
-                print(f"Failed to load pickle file from {latest_path}")
-
 
 
     def sample(self, batch_size):
