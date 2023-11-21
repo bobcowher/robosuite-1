@@ -122,6 +122,16 @@ class Agent(object):
 
         writer = SummaryWriter(log_dir=f"./tensorboard_logdir/{self.env_name}/{datetime.now().strftime('%Y-%m-%d')}")
 
+        # This section is just to add model visualization.
+        dummy_input = torch.randn(1, 84)
+        dummy_action = torch.randn(1, 8)
+
+        dummy_input = dummy_input.to(self.device)
+        dummy_action = dummy_action.to(self.device)
+
+        writer.add_graph(self.actor, dummy_input)
+        writer.add_graph(self.critic, (dummy_input, dummy_action))
+
         total_timesteps = 0
         timesteps_since_eval = 0
         best_episode_reward = 0
@@ -144,7 +154,7 @@ class Agent(object):
                     self.learn(replay_buffer=self.replay_buffer, epochs=100)
                     stats['Returns'].append(episode_reward)
                     writer.add_scalar(f'{self.env_name} - Returns: {batch_identifier}', episode_reward, total_timesteps)
-                    writer.add_scalar(f'{self.env_name} - Returns Per Step: {batch_identifier}', (episode_reward / episode_timesteps), total_timesteps)
+                    # writer.add_scalar(f'{self.env_name} - Returns Per Step: {batch_identifier}', (episode_reward / episode_timesteps), total_timesteps)
 
                     if episode_reward > best_episode_reward:
                         best_episode_reward = episode_reward
@@ -170,8 +180,8 @@ class Agent(object):
             # Before 10000 timesteps, we play random actions
             if total_timesteps < self.start_timesteps:
                 action = np.random.randn(8) * 0.1
-            elif 0 <= total_timesteps % 500 <= 50:
-                action = np.random.randn(8) * 0.1
+            # elif 0 <= total_timesteps % 500 <= 50:
+            #     action = np.random.randn(8) * 0.1
             else:  # After 10000 timesteps, we switch to the model
                 action = self.select_action(obs)
                 # If the explore_noise parameter is not 0, we add noise to the action and we clip it
@@ -203,6 +213,11 @@ class Agent(object):
         return True
 
     def test(self, env, max_timesteps):
+
+        self.actor.eval()
+        self.actor_target.eval()
+        self.critic.eval()
+        self.critic_target.eval()
 
         # print(f"Printing actor model")
         # self.actor.print_model()
