@@ -53,5 +53,5 @@ agent = Agent(state_dim, action_dim, max_action=max_action, batch_size=32, polic
             discount=0.99, device=device, tau=0.005, policy_noise=0.1, expl_noise=0.1,
             noise_clip=0.5, start_timesteps=20e3, learning_rate=0.0001, env_name=env_name, lr_decay_factor=0.999)
 
-stats = agent.train(env, max_timesteps=2e7, batch_identifier=0)
+stats = agent.train(env, max_timesteps=2e7, batch_identifier=1)
 

@@ -4,17 +4,14 @@ import torch.nn.functional as F
 import numpy as np
 
 class Actor(nn.Module):
-
     def __init__(self, state_dim, action_dim, max_action):
         super(Actor, self).__init__()
         self.layer_1 = nn.Linear(state_dim, 300)
         self.bn1 = nn.BatchNorm1d(300, momentum=0.5)
         self.layer_2 = nn.Linear(300, 400)
         self.bn2 = nn.BatchNorm1d(400, momentum=0.5)
-        self.layer_3 = nn.Linear(400, 300)
-        self.bn3 = nn.BatchNorm1d(300, momentum=0.5)
-        self.output = nn.Linear(300, action_dim)
-        self.dropout = nn.Dropout(0.2)
+        self.output = nn.Linear(400, action_dim)  # Adjusted output layer
+        self.dropout = nn.Dropout(0.5)
         self.max_action = max_action
 
     def forward(self, x):
@@ -22,20 +19,17 @@ class Actor(nn.Module):
         if len(x.shape) == 1:
             x = x.unsqueeze(0)
 
-        x = F.relu(self.layer_1(x))
+        x = F.leaky_relu(self.layer_1(x))
         if self.training and x.shape[0] > 1:
             x = self.bn1(x)
         x = self.dropout(x)
 
-        x = F.relu(self.layer_2(x))
+        x = F.leaky_relu(self.layer_2(x))
         if self.training and x.shape[0] > 1:
             x = self.bn2(x)
         x = self.dropout(x)
 
-        x = F.relu(self.layer_3(x))
-        if self.training and x.shape[0] > 1:
-            x = self.bn3(x)
-        x = self.max_action * torch.tanh(self.output(x))
+        x = self.max_action * torch.tanh(self.output(x))  # Adjusted output layer
 
         return x
 
@@ -68,60 +62,48 @@ class Critic(nn.Module):
         print(f"Critic initialized with input of {state_dim + action_dim}")
         self.layer_1 = nn.Linear(state_dim + action_dim, 300)
         self.layer_2 = nn.Linear(300, 400)
-        self.layer_3 = nn.Linear(400, 300)
-        self.output_1 = nn.Linear(300, 1)
+        # Remove the third hidden layer and its associated components
+        self.output_1 = nn.Linear(400, 1)  # Adjusted output layer
 
         # Second critic network
         self.layer_4 = nn.Linear(state_dim + action_dim, 300)
         self.layer_5 = nn.Linear(300, 400)
-        self.layer_6 = nn.Linear(400, 300)
-        self.output_2 = nn.Linear(300, 1)
+        # Remove the third hidden layer and its associated components
+        self.output_2 = nn.Linear(400, 1)  # Adjusted output layer
 
         self.bn1 = nn.BatchNorm1d(300, momentum=0.5)
         self.bn2 = nn.BatchNorm1d(400, momentum=0.5)
-        self.bn3 = nn.BatchNorm1d(300, momentum=0.5)
 
         self.bn4 = nn.BatchNorm1d(300, momentum=0.5)
         self.bn5 = nn.BatchNorm1d(400, momentum=0.5)
-        self.bn6 = nn.BatchNorm1d(300, momentum=0.5)
 
-        self.dropout = nn.Dropout(0.2)
+        self.dropout = nn.Dropout(0.5)
 
     def forward(self, x, u):
 
         xu = torch.cat([x, u], 1)
 
         # First critic forward prop
-        x1 = F.relu(self.layer_1(xu))
-        if self.training:
-            x1 = self.bn1(x1)
+        x1 = F.leaky_relu(self.layer_1(xu))
+        # if self.training:
+        #     x1 = self.bn1(x1)
         x1 = self.dropout(x1)
 
-        x1 = F.relu(self.layer_2(x1))
-        if self.training:
-            x1 = self.bn2(x1)
-        x1 = self.dropout(x1)
-
-        x1 = F.relu(self.layer_3(x1))
-        if self.training:
-            x1 = self.bn3(x1)
-        x1 = self.output_1(x1)
+        x1 = F.leaky_relu(self.layer_2(x1))
+        # if self.training:
+        #     x1 = self.bn2(x1)
+        x1 = self.output_1(x1)  # Adjusted output layer
 
         # Second critic forward prop
-        x2 = F.relu(self.layer_4(xu))
-        if self.training:
-            x2 = self.bn4(x2)
+        x2 = F.leaky_relu(self.layer_4(xu))
+        # if self.training:
+        #     x2 = self.bn4(x2)
         x2 = self.dropout(x2)
 
-        x2 = F.relu(self.layer_5(x2))
-        if self.training:
-            x2 = self.bn5(x2)
-        x2 = self.dropout(x2)
-
-        x2 = F.relu(self.layer_6(x2))
-        if self.training:
-            x2 = self.bn6(x2)
-        x2 = self.output_2(x2)
+        x2 = F.leaky_relu(self.layer_5(x2))
+        # if self.training:
+        #     x2 = self.bn5(x2)
+        x2 = self.output_2(x2)  # Adjusted output layer
 
         return x1, x2
 
@@ -130,20 +112,15 @@ class Critic(nn.Module):
         xu = torch.cat([x, u], 1)
 
         # First critic forward prop
-        x1 = F.relu(self.layer_1(xu))
-        if self.training:
-            x1 = self.bn1(x1)
+        x1 = F.leaky_relu(self.layer_1(xu))
+        # if self.training:
+        #     x1 = self.bn1(x1)
         x1 = self.dropout(x1)
 
-        x1 = F.relu(self.layer_2(x1))
-        if self.training:
-            x1 = self.bn2(x1)
-        x1 = self.dropout(x1)
-
-        x1 = F.relu(self.layer_3(x1))
-        if self.training:
-            x1 = self.bn3(x1)
-        x1 = self.output_1(x1)
+        x1 = F.leaky_relu(self.layer_2(x1))
+        # if self.training:
+        #     x1 = self.bn2(x1)
+        x1 = self.output_1(x1)  # Adjusted output layer
 
         return x1
 
