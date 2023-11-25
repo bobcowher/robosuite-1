@@ -60,7 +60,7 @@ max_action = 1
 # print(max_action)
 
 agent = Agent(state_dim, action_dim, max_action=max_action, batch_size=16, policy_freq=2,
-            discount=0.99, device=device, tau=0.005, policy_noise=0.2, expl_noise=0.1,
+            discount=0.99, device=device, tau=0.005, policy_noise=0.2, expl_noise=0.2,
             noise_clip=0.5, start_timesteps=1e6, learning_rate=0.00005, env_name=env_name, lr_decay_factor=0.999)
 
 
