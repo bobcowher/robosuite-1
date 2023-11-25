@@ -37,7 +37,7 @@ class Agent(object):
 
         self.critic = Critic(state_dim, action_dim).to(self.device)
         self.critic_target = Critic(state_dim, action_dim).to(self.device)
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=self.learning_rate)
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=0.001)
 
         self.max_action = max_action
         self.action_dim = action_dim
@@ -261,8 +261,8 @@ class Agent(object):
                 action = (action + np.random.normal(0, self.expl_noise, size=self.action_dim)).clip(0, 1)
 
             # The agent performs the action in the environment, then reaches the next state and receives the reward
-            new_obs, reward, done, _ = env.step(action)
-            new_obs = obs
+            obs, reward, done, _ = env.step(action)
+
             print(f"Step reward was {reward}")
 
             # We check if the episode is done
@@ -273,7 +273,6 @@ class Agent(object):
 
 
             # We update the state, the episode timestep, the total timesteps, and the timesteps since the evaluation of the policy
-            obs = new_obs
             episode_timesteps += 1
             total_timesteps += 1
 
@@ -309,27 +308,40 @@ class Agent(object):
                 # Step 10: The two critic models should take each the couple (s, a) as input and return two Q-Values(Q1 of s,a and Q2 of s,a)
                 current_q1, current_q2 = self.critic(state, action)
 
-                # Step 11
+
+                # Compute critic loss, complete backprop, and clip gradients
                 critic_loss = F.mse_loss(current_q1, target_q) + F.mse_loss(current_q2, target_q)
 
-                # Step 12: Compute the loss between the two critic models: Critic Loss = MSE_Loss(Q(s,a), Qt) + MSE_Loss(Q(s,a), Qt
                 self.critic_optimizer.zero_grad()
                 critic_loss.backward()
                 self.critic_optimizer.step()
 
-                # Step 13: Once every two iterations, update the actor model by performing gradient ascent on the output of the first critic model.
-                if epoch % self.policy_freq == 0:
-                    actor_loss = -self.critic.Q1(state, self.actor(state)).mean()
-                    self.actor_optimizer.zero_grad()
-                    actor_loss.backward()
-                    self.actor_optimizer.step()
+                # Compute actor loss, complete backprop, and clip gradients
+                actor_loss = -self.critic.Q1(state, self.actor(state)).mean()
 
-                    # Step 14: Still once every two iterations, use Polyak averaging to update the target weights
+                self.actor_optimizer.zero_grad()
+                actor_loss.backward()
+                self.actor_optimizer.step()
+
+
+
+                # update the target models and clip gradients.
+
+                if epoch % self.policy_freq == 0:
+                    max_grad_norm = 1.0
+
+                    # Use Polyak averaging to update the target weights
                     for target_param, main_param in zip(self.actor_target.parameters(), self.actor.parameters()):
                         target_param.data.copy_(self.tau * main_param.data + (1.0 - self.tau) * target_param.data)
 
                     for target_param, main_param in zip(self.critic_target.parameters(), self.critic.parameters()):
                         target_param.data.copy_(self.tau * main_param.data + (1.0 - self.tau) * target_param.data)
+
+                    # This would clip gradients, which doesn't seem to help
+                    # torch.nn.utils.clip_grad_norm_(self.actor.parameters(), max_grad_norm)
+                    # torch.nn.utils.clip_grad_norm_(self.actor_target.parameters(), max_grad_norm)
+                    # torch.nn.utils.clip_grad_norm_(self.critic.parameters(), max_grad_norm)
+                    # torch.nn.utils.clip_grad_norm_(self.critic_target.parameters(), max_grad_norm)
 
             # Making a save method to save a trained model
 

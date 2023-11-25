@@ -7,9 +7,9 @@ class Actor(nn.Module):
     def __init__(self, state_dim, action_dim, max_action):
         super(Actor, self).__init__()
         self.layer_1 = nn.Linear(state_dim, 300)
-        self.bn1 = nn.BatchNorm1d(300, momentum=0.5)
+        self.ln1 = nn.LayerNorm(300)
         self.layer_2 = nn.Linear(300, 400)
-        self.bn2 = nn.BatchNorm1d(400, momentum=0.5)
+        self.ln2 = nn.LayerNorm(400)
         self.output = nn.Linear(400, action_dim)  # Adjusted output layer
         self.dropout = nn.Dropout(0.5)
         self.max_action = max_action
@@ -21,18 +21,17 @@ class Actor(nn.Module):
 
         x = F.leaky_relu(self.layer_1(x))
         if self.training and x.shape[0] > 1:
-            x = self.bn1(x)
+            x = self.ln1(x)
         x = self.dropout(x)
 
         x = F.leaky_relu(self.layer_2(x))
         if self.training and x.shape[0] > 1:
-            x = self.bn2(x)
+            x = self.ln2(x)
         x = self.dropout(x)
 
         x = self.max_action * torch.tanh(self.output(x))  # Adjusted output layer
 
         return x
-
     def save_the_model(self, weights_filename='actor_latest.pt'):
         weights_filename = "models/" + weights_filename
         # Take the default weights filename(latest.pt) and save it
@@ -54,28 +53,27 @@ class Actor(nn.Module):
             print(name, param.data)
 
 
+
 class Critic(nn.Module):
 
     def __init__(self, state_dim, action_dim):
         super(Critic, self).__init__()
-        # First Critic Network.
-        print(f"Critic initialized with input of {state_dim + action_dim}")
+
+        # First Critic Network
         self.layer_1 = nn.Linear(state_dim + action_dim, 300)
         self.layer_2 = nn.Linear(300, 400)
-        # Remove the third hidden layer and its associated components
         self.output_1 = nn.Linear(400, 1)  # Adjusted output layer
 
         # Second critic network
         self.layer_4 = nn.Linear(state_dim + action_dim, 300)
         self.layer_5 = nn.Linear(300, 400)
-        # Remove the third hidden layer and its associated components
         self.output_2 = nn.Linear(400, 1)  # Adjusted output layer
 
-        self.bn1 = nn.BatchNorm1d(300, momentum=0.5)
-        self.bn2 = nn.BatchNorm1d(400, momentum=0.5)
-
-        self.bn4 = nn.BatchNorm1d(300, momentum=0.5)
-        self.bn5 = nn.BatchNorm1d(400, momentum=0.5)
+        # Layer Normalization
+        self.ln1 = nn.LayerNorm(300)
+        self.ln2 = nn.LayerNorm(400)
+        self.ln4 = nn.LayerNorm(300)
+        self.ln5 = nn.LayerNorm(400)
 
         self.dropout = nn.Dropout(0.5)
 
@@ -85,24 +83,24 @@ class Critic(nn.Module):
 
         # First critic forward prop
         x1 = F.leaky_relu(self.layer_1(xu))
-        # if self.training:
-        #     x1 = self.bn1(x1)
+        if self.training:
+            x1 = self.ln1(x1)
         x1 = self.dropout(x1)
 
         x1 = F.leaky_relu(self.layer_2(x1))
-        # if self.training:
-        #     x1 = self.bn2(x1)
+        if self.training:
+            x1 = self.ln2(x1)
         x1 = self.output_1(x1)  # Adjusted output layer
 
         # Second critic forward prop
         x2 = F.leaky_relu(self.layer_4(xu))
-        # if self.training:
-        #     x2 = self.bn4(x2)
+        if self.training:
+            x2 = self.ln4(x2)
         x2 = self.dropout(x2)
 
         x2 = F.leaky_relu(self.layer_5(x2))
-        # if self.training:
-        #     x2 = self.bn5(x2)
+        if self.training:
+            x2 = self.ln5(x2)
         x2 = self.output_2(x2)  # Adjusted output layer
 
         return x1, x2
@@ -113,13 +111,13 @@ class Critic(nn.Module):
 
         # First critic forward prop
         x1 = F.leaky_relu(self.layer_1(xu))
-        # if self.training:
-        #     x1 = self.bn1(x1)
+        if self.training:
+            x1 = self.ln1(x1)
         x1 = self.dropout(x1)
 
         x1 = F.leaky_relu(self.layer_2(x1))
-        # if self.training:
-        #     x1 = self.bn2(x1)
+        if self.training:
+            x1 = self.ln2(x1)
         x1 = self.output_1(x1)  # Adjusted output layer
 
         return x1

@@ -64,4 +64,4 @@ agent = Agent(state_dim, action_dim, max_action=max_action, batch_size=16, polic
             noise_clip=0.5, start_timesteps=1e6, learning_rate=0.00005, env_name=env_name, lr_decay_factor=0.999)
 
 
-agent.test(env, max_timesteps=10000)
+agent.test(env, max_timesteps=601)
