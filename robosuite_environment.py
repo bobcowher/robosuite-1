@@ -1,8 +1,12 @@
+import cv2
 import robosuite as suite
 import numpy as np
 import torch
 
 from robosuite.wrappers import Wrapper
+
+from PIL import Image
+
 
 class RoboSuiteWrapper(Wrapper):
 
@@ -12,6 +16,8 @@ class RoboSuiteWrapper(Wrapper):
 
         self.max_episode_steps = 300
         self.current_episode_step = 0
+        self.image_height = 256
+        self.image_width = 256
 
         # if not test:
 
@@ -29,8 +35,9 @@ class RoboSuiteWrapper(Wrapper):
 
 
     def step(self, action):
-        observation, reward, done, info = super().step(action)
-        observation = self.observation_to_tensor(observation)
+        _, reward, done, info = super().step(action)
+        observation = self.get_observation()
+
 
         # Increment timesteps and set done if max timesteps reached
         self.current_episode_step += 1
@@ -40,10 +47,41 @@ class RoboSuiteWrapper(Wrapper):
 
         return observation, reward, done, info
 
+
+    def get_observation(self):
+        observation = self.sim.render(width=256, height=256, camera_name="frontview")
+
+        # Reshape from a flat tensor to an image.
+        observation = observation.reshape((self.image_height, self.image_width, 3))
+
+        # Flip right side up
+        observation = np.flipud(observation)
+
+        # Convert to black and white
+        observation = cv2.cvtColor(observation, cv2.COLOR_RGB2GRAY)
+
+        observation = observation / 255.0
+
+        observation = torch.from_numpy(observation).float()
+
+        observation = observation.unsqueeze(0)
+        # observation = observation.unsqueeze(0)
+
+        # img = np.array(img)
+        # img = torch.from_numpy(img)
+        # img = img.unsqueeze(0)
+        # img = img.unsqueeze(0)
+        # img = img / 255.0
+        #
+        # img = img.to(self.device)
+
+        return observation
+
+
     def reset(self):
         self.current_episode_step = 0
-        observation = super().reset()
-        observation = self.observation_to_tensor(observation)
+        _ = super().reset()
+        observation = self.get_observation()
         return observation
 
 

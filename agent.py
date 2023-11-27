@@ -118,19 +118,19 @@ class Agent(object):
 
         stats = {'Returns': [], 'AvgReturns': []}
 
-        evaluations = [self.evaluate_policy(env)]
+        # evaluations = [self.evaluate_policy(env)]
 
         writer = SummaryWriter(log_dir=f"./tensorboard_logdir/{self.env_name}/{datetime.now().strftime('%Y-%m-%d')}")
-
-        # This section is just to add model visualization.
-        dummy_input = torch.randn(1, 84)
-        dummy_action = torch.randn(1, 8)
-
-        dummy_input = dummy_input.to(self.device)
-        dummy_action = dummy_action.to(self.device)
-
-        writer.add_graph(self.actor, dummy_input)
-        writer.add_graph(self.critic, (dummy_input, dummy_action))
+        #
+        # # This section is just to add model visualization.
+        # dummy_input = torch.randn(1, 84)
+        # dummy_action = torch.randn(1, 8)
+        #
+        # dummy_input = dummy_input.to(self.device)
+        # dummy_action = dummy_action.to(self.device)
+        #
+        # writer.add_graph(self.actor, dummy_input)
+        # writer.add_graph(self.critic, (dummy_input, dummy_action))
 
         total_timesteps = 0
         timesteps_since_eval = 0

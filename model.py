@@ -6,7 +6,14 @@ import numpy as np
 class Actor(nn.Module):
     def __init__(self, state_dim, action_dim, max_action):
         super(Actor, self).__init__()
-        self.layer_1 = nn.Linear(state_dim, 300)
+
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=(8, 8), stride=(4, 4))
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=(4, 4), stride=(2, 2))
+        self.conv3 = nn.Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1))
+
+        self.flatten = nn.Flatten()
+
+        self.layer_1 = nn.Linear(50176, 300)
         self.ln1 = nn.LayerNorm(300)
         self.layer_2 = nn.Linear(300, 400)
         self.ln2 = nn.LayerNorm(400)
@@ -15,9 +22,16 @@ class Actor(nn.Module):
         self.max_action = max_action
 
     def forward(self, x):
+        # Process image through the convolution layers and flatten.
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
+
+        x = self.flatten(x)
+
         # Ensure that the input tensor has at least 2 dimensions
-        if len(x.shape) == 1:
-            x = x.unsqueeze(0)
+        # if len(x.shape) == 1:
+        #     x = x.unsqueeze(0)
 
         x = F.leaky_relu(self.layer_1(x))
         if self.training and x.shape[0] > 1:
@@ -59,13 +73,18 @@ class Critic(nn.Module):
     def __init__(self, state_dim, action_dim):
         super(Critic, self).__init__()
 
+        # Convolution layers
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=(8, 8), stride=(4, 4))
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=(4, 4), stride=(2, 2))
+        self.conv3 = nn.Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1))
+
         # First Critic Network
-        self.layer_1 = nn.Linear(state_dim + action_dim, 300)
+        self.layer_1 = nn.Linear(50176 + action_dim, 300)
         self.layer_2 = nn.Linear(300, 400)
         self.output_1 = nn.Linear(400, 1)  # Adjusted output layer
 
         # Second critic network
-        self.layer_4 = nn.Linear(state_dim + action_dim, 300)
+        self.layer_4 = nn.Linear(50176 + action_dim, 300)
         self.layer_5 = nn.Linear(300, 400)
         self.output_2 = nn.Linear(400, 1)  # Adjusted output layer
 
@@ -77,7 +96,16 @@ class Critic(nn.Module):
 
         self.dropout = nn.Dropout(0.5)
 
+        self.flatten = nn.Flatten()
+
+
     def forward(self, x, u):
+
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
+
+        x = self.flatten(x)
 
         xu = torch.cat([x, u], 1)
 
@@ -106,6 +134,12 @@ class Critic(nn.Module):
         return x1, x2
 
     def Q1(self, x, u):
+
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
+
+        x = self.flatten(x)
 
         xu = torch.cat([x, u], 1)
 

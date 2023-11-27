@@ -4,6 +4,7 @@ import os
 import torch
 from agent import Agent
 from robosuite_environment import RoboSuiteWrapper
+import cv2
 
 # Set up device as either the GPU or CPU
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -18,33 +19,44 @@ if not os.path.exists("./models"):
 if not os.path.exists("./plots"):
     os.makedirs("./plots")
 
+import robosuite as suite
+import numpy as np
+import cv2
+
 env_name = "Lift"
 
 env = suite.make(
-    env_name,  # Environment
-    robots=["Panda"],  # Use two Panda robots
-    controller_configs=suite.load_controller_config(default_controller="JOINT_VELOCITY"),  # Controller
-    # controller_configs=suite.load_controller_config(default_controller="OSC_POSE"),
-    has_renderer=False,  # Enable rendering
-    use_camera_obs=False,
-    # render_camera="sideview",           # Camera view
-    # has_offscreen_renderer=True,        # No offscreen rendering
+    env_name,
+    robots=["Panda"],
+    controller_configs=suite.load_controller_config(default_controller="JOINT_VELOCITY"),
+    has_renderer=True,
+    use_camera_obs=True,
+    render_camera="sideview",
     reward_shaping=True,
-    control_freq=20,  # Control frequency
+    control_freq=20,
 )
 
 env = RoboSuiteWrapper(env)
 
-
-
 # Reset the environment and get environment params
 obs = env.reset()
+
+env = RoboSuiteWrapper(env)
+
+#
+# cv2.imshow('Camera Observation', obs)
+# cv2.waitKey(0)  # Wait for a key press to close the window
+# cv2.destroyAllWindows()
+
 
 state_dim = obs.shape[0]
 action_dim = env.action_dim
 max_action = 1
 
+print(state_dim)
 print(action_dim)
+
+
 # min_action, max_action = env.action_spec
 #
 # print(max_action)
