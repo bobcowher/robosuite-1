@@ -8,6 +8,7 @@ import time
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
+from torch.optim import lr_scheduler
 
 
 class Agent(object):
@@ -34,10 +35,12 @@ class Agent(object):
         self.actor = Actor(state_dim, action_dim, max_action).to(self.device)
         self.actor_target = Actor(state_dim, action_dim, max_action).to(self.device)
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=self.learning_rate)
+        self.actor_scheduler = lr_scheduler.StepLR(self.actor_optimizer, step_size=decay_step, gamma=lr_decay_factor)
 
         self.critic = Critic(state_dim, action_dim).to(self.device)
         self.critic_target = Critic(state_dim, action_dim).to(self.device)
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=0.001)
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=self.learning_rate)
+        self.critic_scheduler = lr_scheduler.StepLR(self.critic_optimizer, step_size=decay_step, gamma=lr_decay_factor)
 
         self.max_action = max_action
         self.action_dim = action_dim
@@ -125,6 +128,9 @@ class Agent(object):
 
         while total_timesteps < max_timesteps:
 
+            actor_learning_rate = self.actor_optimizer.param_groups[0]["lr"]
+            critic_learning_rate = self.critic_optimizer.param_groups[0]["lr"]
+
             # if total_timesteps % self.decay_step == 0:
             #     self.adjust_learning_rate(total_timesteps=total_timesteps)
 
@@ -133,11 +139,12 @@ class Agent(object):
                 # If we are not at the very beginning, we start the training process of the model
                 if total_timesteps != 0:
                     print(f"Total Timesteps: {total_timesteps} Episode Num: {episode_num} Reward: {episode_reward} "
-                          f"Learning Rate: {self.learning_rate:.10f} Batch: {batch_identifier}")
+                          f"Learning Rate: {critic_learning_rate:.10f}:{actor_learning_rate:.10f} Batch: {batch_identifier}")
 
                     self.learn(replay_buffer=self.replay_buffer, epochs=100)
                     stats['Returns'].append(episode_reward)
                     writer.add_scalar(f'{self.env_name} - Returns: {batch_identifier}', episode_reward, total_timesteps)
+                    writer.add_scalar(f'{self.env_name} - Learning Rate: {batch_identifier}', actor_learning_rate, total_timesteps)
                     # writer.add_scalar(f'{self.env_name} - Returns Per Step: {batch_identifier}', (episode_reward / episode_timesteps), total_timesteps)
 
                     if episode_reward > best_episode_reward:
@@ -191,6 +198,11 @@ class Agent(object):
 
             total_timesteps += 1
             timesteps_since_eval += 1
+
+            # Decrease learning rate over time.
+            if actor_learning_rate > self.min_learning_rate:
+                self.actor_scheduler.step()
+                self.critic_scheduler.step()
 
 
 
@@ -300,13 +312,13 @@ class Agent(object):
                 critic_loss.backward()
                 self.critic_optimizer.step()
 
+
                 # Compute actor loss, complete backprop, and clip gradients
                 actor_loss = -self.critic.Q1(state, self.actor(state)).mean()
 
                 self.actor_optimizer.zero_grad()
                 actor_loss.backward()
                 self.actor_optimizer.step()
-
 
 
                 # update the target models and clip gradients.
