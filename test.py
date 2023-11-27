@@ -21,18 +21,19 @@ if not os.path.exists("./plots"):
 
 env_name = "Lift"
 
-env = suite.make(
-    env_name,  # Environment
-    robots=["Panda"],  # Use two Panda robots
-    controller_configs=suite.load_controller_config(default_controller="JOINT_VELOCITY"),  # Controller
-    has_renderer=True,  # Enable rendering
-    render_camera="sideview",  # Camera view
-    has_offscreen_renderer=True,  # No offscreen rendering
-    use_camera_obs=False,
-    reward_shaping=True,
-    control_freq=20,  # Control frequency
-)
 
+
+env = suite.make(
+    env_name,
+    robots=["Panda"],
+    controller_configs=suite.load_controller_config(default_controller="JOINT_VELOCITY"),
+    has_renderer=True,
+    use_camera_obs=True,
+    render_camera="sideview",
+    # has_offscreen_renderer=True,  # No offscreen rendering
+    reward_shaping=True,
+    control_freq=20,
+)
 # env = suite.make(
 #     env_name,  # Environment
 #     robots=["Panda"],  # Use two Panda robots

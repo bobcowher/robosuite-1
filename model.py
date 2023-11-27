@@ -29,11 +29,10 @@ class Actor(nn.Module):
 
         x = self.flatten(x)
 
-        # Ensure that the input tensor has at least 2 dimensions
-        # if len(x.shape) == 1:
-        #     x = x.unsqueeze(0)
-
-        x = F.leaky_relu(self.layer_1(x))
+        try:
+            x = F.leaky_relu(self.layer_1(x))
+        except:
+            print(x)
         if self.training and x.shape[0] > 1:
             x = self.ln1(x)
         x = self.dropout(x)

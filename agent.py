@@ -87,32 +87,16 @@ class Agent(object):
         # state = torch.Tensor(state.reshape(1, -1)).to(self.device)
         # if not isinstance(state, torch.Tensor):
         #     print(state)
-        #     exit(1)
+        #     exit
+
+        if len(state.shape) == 3:
+            # Add a batch dimension
+            state = state.unsqueeze(0)
 
         state = state.to(self.device)
         return self.actor(state).cpu().data.numpy().flatten()
 
-    def evaluate_policy(self, env, eval_episodes=10):
-        avg_reward = 0.
-        for _ in range(eval_episodes):
-            obs = env.reset()
-            done = False
-            max_eval_timesteps = 100
-            current_timestep = 0
-            while not done:
-                action = self.select_action(obs)
-                obs, reward, done, _ = env.step(action)
-                avg_reward += reward
 
-                if current_timestep > max_eval_timesteps:
-                    done = True
-                current_timestep += 1
-
-        avg_reward /= eval_episodes
-        print("---------------------------------------")
-        print("Average Reward over the Evaluation Step: %f" % (avg_reward))
-        print("---------------------------------------")
-        return avg_reward
 
     def train(self, env, max_timesteps, batch_identifier=0):
 
