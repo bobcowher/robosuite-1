@@ -14,10 +14,10 @@ class RoboSuiteWrapper(Wrapper):
 
         super().__init__(env)
 
-        self.max_episode_steps = 300
+        self.max_episode_steps = 100
         self.current_episode_step = 0
-        self.image_height = 256
-        self.image_width = 256
+        self.image_height = 84
+        self.image_width = 84
 
         # if not test:
 
@@ -49,7 +49,7 @@ class RoboSuiteWrapper(Wrapper):
 
 
     def get_observation(self):
-        observation = self.sim.render(width=256, height=256, camera_name="frontview")
+        observation = self.sim.render(width=self.image_width, height=self.image_height, camera_name="robot0_eye_in_hand")
 
         # Reshape from a flat tensor to an image.
         observation = observation.reshape((self.image_height, self.image_width, 3))

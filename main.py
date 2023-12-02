@@ -63,8 +63,8 @@ print(action_dim)
 
 agent = Agent(state_dim, action_dim, max_action=max_action, batch_size=32, policy_freq=4,
             discount=0.99, device=device, tau=0.005, policy_noise=0.15, expl_noise=0.2,
-            noise_clip=0.5, start_timesteps=5e4, learning_rate=0.0001, env_name=env_name, lr_decay_factor=0.999,
-            replay_buffer_max_size=500000)
+            noise_clip=0.5, start_timesteps=2e4, learning_rate=0.0001, env_name=env_name, lr_decay_factor=1.0,
+            replay_buffer_max_size=1000000)
 
-stats = agent.train(env, max_timesteps=5e7, batch_identifier=4)
+stats = agent.train(env, max_timesteps=5e7, batch_identifier=0)
 

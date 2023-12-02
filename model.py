@@ -13,7 +13,7 @@ class Actor(nn.Module):
 
         self.flatten = nn.Flatten()
 
-        self.layer_1 = nn.Linear(50176, 300)
+        self.layer_1 = nn.Linear(3136, 300)
         self.ln1 = nn.LayerNorm(300)
         self.layer_2 = nn.Linear(300, 400)
         self.ln2 = nn.LayerNorm(400)
@@ -26,13 +26,12 @@ class Actor(nn.Module):
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv3(x))
+        # x = F.relu(self.conv4(x))
 
         x = self.flatten(x)
 
-        try:
-            x = F.leaky_relu(self.layer_1(x))
-        except:
-            print(x)
+        x = F.leaky_relu(self.layer_1(x))
+
         if self.training and x.shape[0] > 1:
             x = self.ln1(x)
         x = self.dropout(x)
@@ -78,20 +77,13 @@ class Critic(nn.Module):
         self.conv3 = nn.Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1))
 
         # First Critic Network
-        self.layer_1 = nn.Linear(50176 + action_dim, 300)
-        self.layer_2 = nn.Linear(300, 400)
-        self.output_1 = nn.Linear(400, 1)  # Adjusted output layer
+        self.state_value1 = nn.Linear(3136, 300)
+        self.state_value2 = nn.Linear(300, 400)
+        self.state_value3 = nn.Linear(400, 1)  # Adjusted output layer
 
-        # Second critic network
-        self.layer_4 = nn.Linear(50176 + action_dim, 300)
-        self.layer_5 = nn.Linear(300, 400)
-        self.output_2 = nn.Linear(400, 1)  # Adjusted output layer
-
-        # Layer Normalization
-        self.ln1 = nn.LayerNorm(300)
-        self.ln2 = nn.LayerNorm(400)
-        self.ln4 = nn.LayerNorm(300)
-        self.ln5 = nn.LayerNorm(400)
+        self.action_value1 = nn.Linear(action_dim, 300)
+        self.action_value2 = nn.Linear(300, 400)
+        self.action_value3 = nn.Linear(400, 1)  # Adjusted output layer
 
         self.dropout = nn.Dropout(0.5)
 
@@ -100,60 +92,27 @@ class Critic(nn.Module):
 
     def forward(self, x, u):
 
+        x = torch.Tensor(x)
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv3(x))
-
         x = self.flatten(x)
 
-        xu = torch.cat([x, u], 1)
+        state_value = F.relu(self.state_value1(x))
+        state_value = self.dropout(state_value)
+        state_value = F.relu(self.state_value2(state_value))
+        state_value = self.dropout(state_value)
+        state_value = self.state_value3(state_value)
 
-        # First critic forward prop
-        x1 = F.leaky_relu(self.layer_1(xu))
-        if self.training:
-            x1 = self.ln1(x1)
-        x1 = self.dropout(x1)
+        action_value = F.relu(self.action_value1(u))
+        action_value = self.dropout(action_value)
+        action_value = F.relu(self.action_value2(action_value))
+        action_value = self.dropout(action_value)
+        action_value = self.action_value3(action_value)
 
-        x1 = F.leaky_relu(self.layer_2(x1))
-        if self.training:
-            x1 = self.ln2(x1)
-        x1 = self.output_1(x1)  # Adjusted output layer
+        output = state_value + (action_value - action_value.mean())
 
-        # Second critic forward prop
-        x2 = F.leaky_relu(self.layer_4(xu))
-        if self.training:
-            x2 = self.ln4(x2)
-        x2 = self.dropout(x2)
-
-        x2 = F.leaky_relu(self.layer_5(x2))
-        if self.training:
-            x2 = self.ln5(x2)
-        x2 = self.output_2(x2)  # Adjusted output layer
-
-        return x1, x2
-
-    def Q1(self, x, u):
-
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
-
-        x = self.flatten(x)
-
-        xu = torch.cat([x, u], 1)
-
-        # First critic forward prop
-        x1 = F.leaky_relu(self.layer_1(xu))
-        if self.training:
-            x1 = self.ln1(x1)
-        x1 = self.dropout(x1)
-
-        x1 = F.leaky_relu(self.layer_2(x1))
-        if self.training:
-            x1 = self.ln2(x1)
-        x1 = self.output_1(x1)  # Adjusted output layer
-
-        return x1
+        return output
 
     def save_the_model(self, weights_filename='critic_latest.pt'):
         weights_filename = "models/" + weights_filename

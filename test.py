@@ -30,6 +30,7 @@ env = suite.make(
     has_renderer=True,
     use_camera_obs=True,
     render_camera="sideview",
+    # ('frontview', 'birdview', 'agentview', 'sideview', 'robot0_robotview', 'robot0_eye_in_hand')
     # has_offscreen_renderer=True,  # No offscreen rendering
     reward_shaping=True,
     control_freq=20,
@@ -61,8 +62,8 @@ max_action = 1
 # print(max_action)
 
 agent = Agent(state_dim, action_dim, max_action=max_action, batch_size=16, policy_freq=2,
-            discount=0.99, device=device, tau=0.005, policy_noise=0.2, expl_noise=0.2,
+            discount=0.99, device=device, tau=0.005, policy_noise=0.2, expl_noise=0.01,
             noise_clip=0.5, start_timesteps=1e6, learning_rate=0.00005, env_name=env_name, lr_decay_factor=0.999)
 
 
-agent.test(env, max_timesteps=601)
+agent.test(env, max_timesteps=201)

@@ -293,20 +293,23 @@ class Agent(object):
                 next_action = (next_action + noise).clamp(-self.max_action, self.max_action)
 
                 # Step 7: Get critic q value
-                target_q1, target_q2 = self.critic_target(next_state, next_action)
+                target_q = self.critic_target(next_state, next_action)
 
-                # Step 8: We keep the minimum of these two Q-values
-                target_q = torch.min(target_q1, target_q2)
+                # # Step 8: We keep the minimum of these two Q-values
+                # target_q = torch.min(target_q1, target_q2)
 
                 # Step 9: We get the final target of the two Critic models, which is Qt = r + y * min(Qt1, Qt2), where y is the discount factor.
                 target_q = reward + ((1 - done) * self.discount * target_q).detach()
 
                 # Step 10: The two critic models should take each the couple (s, a) as input and return two Q-Values(Q1 of s,a and Q2 of s,a)
-                current_q1, current_q2 = self.critic(state, action)
+                current_q = self.critic(state, action)
+
+                # print("Target Q: ", target_q)
+                # print("Current Q: ", current_q)
 
 
                 # Compute critic loss, complete backprop, and clip gradients
-                critic_loss = F.mse_loss(current_q1, target_q) + F.mse_loss(current_q2, target_q)
+                critic_loss = F.mse_loss(current_q, target_q)
 
                 self.critic_optimizer.zero_grad()
                 critic_loss.backward()
@@ -314,7 +317,7 @@ class Agent(object):
 
 
                 # Compute actor loss, complete backprop, and clip gradients
-                actor_loss = -self.critic.Q1(state, self.actor(state)).mean()
+                actor_loss = -self.critic(state, self.actor(state)).mean()
 
                 self.actor_optimizer.zero_grad()
                 actor_loss.backward()
