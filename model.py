@@ -32,13 +32,13 @@ class Actor(nn.Module):
 
         x = F.leaky_relu(self.layer_1(x))
 
-        if self.training and x.shape[0] > 1:
-            x = self.ln1(x)
+        # if self.training and x.shape[0] > 1:
+        #     x = self.ln1(x)
         x = self.dropout(x)
 
         x = F.leaky_relu(self.layer_2(x))
-        if self.training and x.shape[0] > 1:
-            x = self.ln2(x)
+        # if self.training and x.shape[0] > 1:
+        #     x = self.ln2(x)
         x = self.dropout(x)
 
         x = self.max_action * torch.tanh(self.output(x))  # Adjusted output layer

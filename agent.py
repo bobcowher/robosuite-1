@@ -37,19 +37,31 @@ class Agent(object):
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=self.learning_rate)
         self.actor_scheduler = lr_scheduler.StepLR(self.actor_optimizer, step_size=decay_step, gamma=lr_decay_factor)
 
-        self.critic = Critic(state_dim, action_dim).to(self.device)
-        self.critic_target = Critic(state_dim, action_dim).to(self.device)
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=self.learning_rate)
-        self.critic_scheduler = lr_scheduler.StepLR(self.critic_optimizer, step_size=decay_step, gamma=lr_decay_factor)
+        self.critic1 = Critic(state_dim, action_dim).to(self.device)
+        self.critic1_target = Critic(state_dim, action_dim).to(self.device)
+        self.critic1_optimizer = torch.optim.Adam(self.critic.parameters(), lr=self.learning_rate)
+        self.critic1_scheduler = lr_scheduler.StepLR(self.critic_optimizer, step_size=decay_step, gamma=lr_decay_factor)
+
+        self.critic2 = Critic(state_dim, action_dim).to(self.device)
+        self.critic2_target = Critic(state_dim, action_dim).to(self.device)
+        self.critic2_optimizer = torch.optim.Adam(self.critic.parameters(), lr=self.learning_rate)
+        self.critic2_scheduler = lr_scheduler.StepLR(self.critic_optimizer, step_size=decay_step, gamma=lr_decay_factor)
 
         self.max_action = max_action
         self.action_dim = action_dim
 
-        # Capturing the return values to see later if the model was loaded successfully.
-        critic_model_loaded = self.critic.load_the_model(weights_filename=f"{env_name}_critic_latest.pt")
-        self.critic_target.load_the_model(weights_filename=f"{env_name}_critic_latest.pt")
+        # Loading the first critic model.
+        critic_model_loaded = self.critic1.load_the_model(weights_filename=f"{env_name}_critic1_latest.pt")
+        self.critic1_target.load_the_model(weights_filename=f"{env_name}_critic1_latest.pt")
+
+        # Loading the second critic model
+        self.critic2.load_the_model(weights_filename=f"{env_name}_critic1_latest.pt")
+        self.critic2_target.load_the_model(weights_filename=f"{env_name}_critic1_latest.pt")
+
+        # Loading the actor model
         actor_model_loaded = self.actor.load_the_model(weights_filename=f"{env_name}_actor_latest.pt")
         self.actor_target.load_the_model(weights_filename=f"{env_name}_actor_latest.pt")
+
 
         self.batch_size = batch_size
         self.policy_freq = policy_freq
@@ -75,15 +87,6 @@ class Agent(object):
 
         print(f"Configured agent with device: {self.device}")
 
-    def train_from_buffer(self, filename, epochs):
-        print(f"Beginning model learning from saved buffer {filename}.pkl")
-        self.replay_buffer.load_from_disk(filename=filename)
-
-        self.learn(replay_buffer=self.replay_buffer, epochs=epochs)
-
-        self.actor.save_the_model()
-        self.critic.save_the_model()
-        print(f"End model learning from saved buffer {filename}.pkl. Model saved.")
 
 
     def select_action(self, state):
@@ -129,7 +132,7 @@ class Agent(object):
         while total_timesteps < max_timesteps:
 
             actor_learning_rate = self.actor_optimizer.param_groups[0]["lr"]
-            critic_learning_rate = self.critic_optimizer.param_groups[0]["lr"]
+            critic1_learning_rate = self.critic1_optimizer.param_groups[0]["lr"]
 
             # if total_timesteps % self.decay_step == 0:
             #     self.adjust_learning_rate(total_timesteps=total_timesteps)
@@ -139,7 +142,7 @@ class Agent(object):
                 # If we are not at the very beginning, we start the training process of the model
                 if total_timesteps != 0:
                     print(f"Total Timesteps: {total_timesteps} Episode Num: {episode_num} Reward: {episode_reward} "
-                          f"Learning Rate: {critic_learning_rate:.10f}:{actor_learning_rate:.10f} Batch: {batch_identifier}")
+                          f"Learning Rate: {critic1_learning_rate:.10f}:{actor_learning_rate:.10f} Batch: {batch_identifier}")
 
                     self.learn(replay_buffer=self.replay_buffer, epochs=100)
                     stats['Returns'].append(episode_reward)
@@ -149,7 +152,7 @@ class Agent(object):
 
                     if episode_reward > best_episode_reward:
                         best_episode_reward = episode_reward
-                        self.critic.save_the_model(weights_filename='critic_best.pt')
+                        self.critic1.save_the_model(weights_filename='critic_best.pt')
                         self.actor.save_the_model(weights_filename='actor_best.pt')
 
                 # When the training step is done, we reset the state of the environment
@@ -202,7 +205,8 @@ class Agent(object):
             # Decrease learning rate over time.
             if actor_learning_rate > self.min_learning_rate:
                 self.actor_scheduler.step()
-                self.critic_scheduler.step()
+                self.critic1_scheduler.step()
+                self.critic2_scheduler.step()
 
 
 
@@ -212,8 +216,10 @@ class Agent(object):
 
         self.actor.eval()
         self.actor_target.eval()
-        self.critic.eval()
-        self.critic_target.eval()
+        self.critic1.eval()
+        self.critic1_target.eval()
+        self.critic2.eval()
+        self.critic2_target.eval()
 
         # print(f"Printing actor model")
         # self.actor.print_model()
@@ -293,31 +299,39 @@ class Agent(object):
                 next_action = (next_action + noise).clamp(-self.max_action, self.max_action)
 
                 # Step 7: Get critic q value
-                target_q = self.critic_target(next_state, next_action)
+                target_q1 = self.critic1_target(next_state, next_action)
+                target_q2 = self.critic2_target(next_state, next_action)
 
                 # # Step 8: We keep the minimum of these two Q-values
-                # target_q = torch.min(target_q1, target_q2)
+                target_q = torch.min(target_q1, target_q2)
 
                 # Step 9: We get the final target of the two Critic models, which is Qt = r + y * min(Qt1, Qt2), where y is the discount factor.
                 target_q = reward + ((1 - done) * self.discount * target_q).detach()
 
                 # Step 10: The two critic models should take each the couple (s, a) as input and return two Q-Values(Q1 of s,a and Q2 of s,a)
-                current_q = self.critic(state, action)
+                current_q1 = self.critic1(state, action)
+                current_q2 = self.critic2(state, action)
 
                 # print("Target Q: ", target_q)
                 # print("Current Q: ", current_q)
 
 
                 # Compute critic loss, complete backprop, and clip gradients
-                critic_loss = F.mse_loss(current_q, target_q)
+                critic1_loss = F.mse_loss(current_q1, target_q)
+                critic2_loss = F.mse_loss(current_q2, target_q)
 
-                self.critic_optimizer.zero_grad()
-                critic_loss.backward()
-                self.critic_optimizer.step()
+                self.critic1_optimizer.zero_grad()
+                self.critic2_optimizer.zero_grad()
+
+                critic1_loss.backward()
+                critic2_loss.backward()
+
+                self.critic1_optimizer.step()
+                self.critic2_optimizer.step()
 
 
                 # Compute actor loss, complete backprop, and clip gradients
-                actor_loss = -self.critic(state, self.actor(state)).mean()
+                actor_loss = -self.critic1(state, self.actor(state)).mean()
 
                 self.actor_optimizer.zero_grad()
                 actor_loss.backward()
@@ -333,7 +347,10 @@ class Agent(object):
                     for target_param, main_param in zip(self.actor_target.parameters(), self.actor.parameters()):
                         target_param.data.copy_(self.tau * main_param.data + (1.0 - self.tau) * target_param.data)
 
-                    for target_param, main_param in zip(self.critic_target.parameters(), self.critic.parameters()):
+                    for target_param, main_param in zip(self.critic1_target.parameters(), self.critic1.parameters()):
+                        target_param.data.copy_(self.tau * main_param.data + (1.0 - self.tau) * target_param.data)
+
+                    for target_param, main_param in zip(self.critic2_target.parameters(), self.critic2.parameters()):
                         target_param.data.copy_(self.tau * main_param.data + (1.0 - self.tau) * target_param.data)
 
                     # This would clip gradients, which doesn't seem to help
@@ -347,4 +364,5 @@ class Agent(object):
 
     def save(self):
         self.actor.save_the_model(weights_filename=f"{self.env_name}_actor_latest.pt")
-        self.critic.save_the_model(weights_filename=f"{self.env_name}_critic_latest.pt")
+        self.critic1.save_the_model(weights_filename=f"{self.env_name}_critic1_latest.pt")
+        self.critic2.save_the_model(weights_filename=f"{self.env_name}_critic1_latest.pt")
