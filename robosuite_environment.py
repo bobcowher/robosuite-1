@@ -50,6 +50,7 @@ class RoboSuiteWrapper(Wrapper):
 
     def get_observation(self):
         observation = self.sim.render(width=self.image_width, height=self.image_height, camera_name="robot0_eye_in_hand")
+        # observation = self.sim.render(width=self.image_width, height=self.image_height, camera_name="sideview")
 
         # Reshape from a flat tensor to an image.
         observation = observation.reshape((self.image_height, self.image_width, 3))
@@ -65,15 +66,6 @@ class RoboSuiteWrapper(Wrapper):
         observation = torch.from_numpy(observation).float()
 
         observation = observation.unsqueeze(0)
-        # observation = observation.unsqueeze(0)
-
-        # img = np.array(img)
-        # img = torch.from_numpy(img)
-        # img = img.unsqueeze(0)
-        # img = img.unsqueeze(0)
-        # img = img / 255.0
-        #
-        # img = img.to(self.device)
 
         return observation
 

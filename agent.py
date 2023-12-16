@@ -8,14 +8,13 @@ import time
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
-from torch.optim import lr_scheduler
 
 
 class Agent(object):
 
     def __init__(self, state_dim, action_dim, max_action, batch_size, policy_freq, discount, tau=0.005, eval_freq=100,
-                 policy_noise=0.2, expl_noise=0.1, noise_clip=0.5, start_timesteps=1e4, device=None, env_name=None,
-                 replay_buffer_max_size=1000000, learning_rate=0.001, lr_decay_factor=1, min_learning_rate=0.00001, decay_step=1000):
+                 policy_noise=0.2, min_policy_noise=0.1, expl_noise=0.1, min_expl_noise=0.1, noise_decay_rate=0.999, noise_clip=0.5, start_timesteps=1e4, device=None, env_name=None,
+                 replay_buffer_max_size=1000000, lr_decay_factor=1, min_learning_rate=0.00001, decay_step=1000):
         """
 
         :param state_dim:
@@ -30,22 +29,17 @@ class Agent(object):
         :param start_timesteps: Number of timesteps to take in warmup mode
         """
         self.device = device
-        self.learning_rate = learning_rate
-        self.min_learning_rate = min_learning_rate
         self.actor = Actor(state_dim, action_dim, max_action).to(self.device)
         self.actor_target = Actor(state_dim, action_dim, max_action).to(self.device)
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=self.learning_rate)
-        self.actor_scheduler = lr_scheduler.StepLR(self.actor_optimizer, step_size=decay_step, gamma=lr_decay_factor)
+        self.actor_optimizer = None
 
         self.critic1 = Critic(state_dim, action_dim).to(self.device)
         self.critic1_target = Critic(state_dim, action_dim).to(self.device)
-        self.critic1_optimizer = torch.optim.Adam(self.critic.parameters(), lr=self.learning_rate)
-        self.critic1_scheduler = lr_scheduler.StepLR(self.critic_optimizer, step_size=decay_step, gamma=lr_decay_factor)
+        self.critic1_optimizer = None
 
         self.critic2 = Critic(state_dim, action_dim).to(self.device)
         self.critic2_target = Critic(state_dim, action_dim).to(self.device)
-        self.critic2_optimizer = torch.optim.Adam(self.critic.parameters(), lr=self.learning_rate)
-        self.critic2_scheduler = lr_scheduler.StepLR(self.critic_optimizer, step_size=decay_step, gamma=lr_decay_factor)
+        self.critic2_optimizer = None
 
         self.max_action = max_action
         self.action_dim = action_dim
@@ -55,8 +49,8 @@ class Agent(object):
         self.critic1_target.load_the_model(weights_filename=f"{env_name}_critic1_latest.pt")
 
         # Loading the second critic model
-        self.critic2.load_the_model(weights_filename=f"{env_name}_critic1_latest.pt")
-        self.critic2_target.load_the_model(weights_filename=f"{env_name}_critic1_latest.pt")
+        self.critic2.load_the_model(weights_filename=f"{env_name}_critic2_latest.pt")
+        self.critic2_target.load_the_model(weights_filename=f"{env_name}_critic2_latest.pt")
 
         # Loading the actor model
         actor_model_loaded = self.actor.load_the_model(weights_filename=f"{env_name}_actor_latest.pt")
@@ -69,13 +63,15 @@ class Agent(object):
         self.eval_freq = eval_freq
         self.tau = tau
         self.policy_noise = policy_noise
+        self.min_policy_noise = min_policy_noise
         self.expl_noise = expl_noise
+        self.min_expl_noise = min_expl_noise
+        self.noise_decay_rate = noise_decay_rate
         self.noise_clip = noise_clip
         self.env_name = env_name
         self.replay_buffer = ReplayBuffer(max_size=replay_buffer_max_size)
         self.decay_step = decay_step
         self.lr_decay_factor = lr_decay_factor
-        self.initial_learning_rate = learning_rate
 
         # self.start_timesteps = start_timesteps
         if critic_model_loaded and actor_model_loaded:
@@ -104,7 +100,12 @@ class Agent(object):
 
 
 
-    def train(self, env, max_timesteps, batch_identifier=0):
+    def train(self, env, max_timesteps, batch_identifier=0, learning_rate=0.0001):
+        self.actor_optimizer = torch.optim.AdamW(self.actor.parameters(), lr=learning_rate, weight_decay=0.001)
+        self.critic1_optimizer = torch.optim.AdamW(self.critic1.parameters(), lr=learning_rate, weight_decay=0.001)
+        self.critic2_optimizer = torch.optim.AdamW(self.critic1.parameters(), lr=learning_rate, weight_decay=0.001)
+
+
 
         stats = {'Returns': [], 'AvgReturns': []}
 
@@ -144,10 +145,14 @@ class Agent(object):
                     print(f"Total Timesteps: {total_timesteps} Episode Num: {episode_num} Reward: {episode_reward} "
                           f"Learning Rate: {critic1_learning_rate:.10f}:{actor_learning_rate:.10f} Batch: {batch_identifier}")
 
-                    self.learn(replay_buffer=self.replay_buffer, epochs=100)
+                    self.learn(replay_buffer=self.replay_buffer, epochs=10)
                     stats['Returns'].append(episode_reward)
+                    # writer.add_scalar(f'{self.env_name} - Learning Rate: {batch_identifier}', actor_learning_rate, total_timesteps)
+                    writer.add_scalar(f'{self.env_name} - Explore Noise: {batch_identifier}', self.expl_noise, total_timesteps)
+                    writer.add_scalar(f'{self.env_name} - Policy Noise: {batch_identifier}', self.policy_noise, total_timesteps)
                     writer.add_scalar(f'{self.env_name} - Returns: {batch_identifier}', episode_reward, total_timesteps)
-                    writer.add_scalar(f'{self.env_name} - Learning Rate: {batch_identifier}', actor_learning_rate, total_timesteps)
+
+
                     # writer.add_scalar(f'{self.env_name} - Returns Per Step: {batch_identifier}', (episode_reward / episode_timesteps), total_timesteps)
 
                     if episode_reward > best_episode_reward:
@@ -170,6 +175,14 @@ class Agent(object):
 
                 if episode_num % 10 == 0:
                     self.save()
+
+                if self.policy_noise > self.min_policy_noise:
+                    self.policy_noise = self.policy_noise * self.noise_decay_rate
+
+                if self.expl_noise > self.min_expl_noise:
+                    self.expl_noise = self.expl_noise * self.noise_decay_rate
+
+
 
             # Before 10000 timesteps, we play random actions
             if total_timesteps < self.start_timesteps:
@@ -202,11 +215,10 @@ class Agent(object):
             total_timesteps += 1
             timesteps_since_eval += 1
 
-            # Decrease learning rate over time.
-            if actor_learning_rate > self.min_learning_rate:
-                self.actor_scheduler.step()
-                self.critic1_scheduler.step()
-                self.critic2_scheduler.step()
+            if total_timesteps % 10000 == 0:
+                self.save(iteration=total_timesteps, folder='incremental/')
+
+
 
 
 
@@ -317,14 +329,12 @@ class Agent(object):
 
 
                 # Compute critic loss, complete backprop, and clip gradients
-                critic1_loss = F.mse_loss(current_q1, target_q)
-                critic2_loss = F.mse_loss(current_q2, target_q)
+                critic_loss = F.mse_loss(current_q1, target_q) + F.mse_loss(current_q2, target_q)
 
                 self.critic1_optimizer.zero_grad()
                 self.critic2_optimizer.zero_grad()
 
-                critic1_loss.backward()
-                critic2_loss.backward()
+                critic_loss.backward()
 
                 self.critic1_optimizer.step()
                 self.critic2_optimizer.step()
@@ -339,6 +349,11 @@ class Agent(object):
 
 
                 # update the target models and clip gradients.
+                for target_param, main_param in zip(self.critic1_target.parameters(), self.critic1.parameters()):
+                    target_param.data.copy_(self.tau * main_param.data + (1.0 - self.tau) * target_param.data)
+
+                for target_param, main_param in zip(self.critic2_target.parameters(), self.critic2.parameters()):
+                    target_param.data.copy_(self.tau * main_param.data + (1.0 - self.tau) * target_param.data)
 
                 if epoch % self.policy_freq == 0:
                     max_grad_norm = 1.0
@@ -347,22 +362,19 @@ class Agent(object):
                     for target_param, main_param in zip(self.actor_target.parameters(), self.actor.parameters()):
                         target_param.data.copy_(self.tau * main_param.data + (1.0 - self.tau) * target_param.data)
 
-                    for target_param, main_param in zip(self.critic1_target.parameters(), self.critic1.parameters()):
-                        target_param.data.copy_(self.tau * main_param.data + (1.0 - self.tau) * target_param.data)
-
-                    for target_param, main_param in zip(self.critic2_target.parameters(), self.critic2.parameters()):
-                        target_param.data.copy_(self.tau * main_param.data + (1.0 - self.tau) * target_param.data)
-
                     # This would clip gradients, which doesn't seem to help
+                    max_grad_norm = 1
                     # torch.nn.utils.clip_grad_norm_(self.actor.parameters(), max_grad_norm)
                     # torch.nn.utils.clip_grad_norm_(self.actor_target.parameters(), max_grad_norm)
-                    # torch.nn.utils.clip_grad_norm_(self.critic.parameters(), max_grad_norm)
-                    # torch.nn.utils.clip_grad_norm_(self.critic_target.parameters(), max_grad_norm)
+                    # torch.nn.utils.clip_grad_norm_(self.critic1.parameters(), max_grad_norm)
+                    # torch.nn.utils.clip_grad_norm_(self.critic1_target.parameters(), max_grad_norm)
+                    # torch.nn.utils.clip_grad_norm_(self.critic2.parameters(), max_grad_norm)
+                    # torch.nn.utils.clip_grad_norm_(self.critic2_target.parameters(), max_grad_norm)
 
             # Making a save method to save a trained model
 
 
-    def save(self):
-        self.actor.save_the_model(weights_filename=f"{self.env_name}_actor_latest.pt")
-        self.critic1.save_the_model(weights_filename=f"{self.env_name}_critic1_latest.pt")
-        self.critic2.save_the_model(weights_filename=f"{self.env_name}_critic1_latest.pt")
+    def save(self, iteration="latest", folder=""):
+        self.actor.save_the_model(weights_filename=f"{folder}{self.env_name}_actor_{iteration}.pt")
+        self.critic1.save_the_model(weights_filename=f"{folder}{self.env_name}_critic1_{iteration}.pt")
+        self.critic2.save_the_model(weights_filename=f"{folder}{self.env_name}_critic2_{iteration}.pt")
