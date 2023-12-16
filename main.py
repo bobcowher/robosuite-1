@@ -78,7 +78,7 @@ agent = Agent(state_dim, action_dim, max_action=max_action, batch_size=32, polic
 
 # learning_rate = 0.001
 learning_rate = 0.00025
-learning_rate = 0.00001
+# learning_rate = 0.00001
 
 # for i in range(10):
 stats = agent.train(env, max_timesteps=1000000, batch_identifier=0, learning_rate=learning_rate)
