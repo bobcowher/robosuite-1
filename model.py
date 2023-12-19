@@ -35,20 +35,20 @@ class Actor(nn.Module):
 
     def forward(self, x):
         # Process image through the convolution layers and flatten.
-        x = F.leaky_relu(self.conv1(x))
-        x = F.leaky_relu(self.conv2(x))
-        x = F.leaky_relu(self.conv3(x))
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
         # x = F.relu(self.conv4(x))
 
         x = self.flatten(x)
 
-        x = F.leaky_relu(self.layer_1(x))
+        x = F.relu(self.layer_1(x))
 
         # if self.training and x.shape[0] > 1:
         #     x = self.ln1(x)
         x = self.dropout(x)
 
-        x = F.leaky_relu(self.layer_2(x))
+        x = F.relu(self.layer_2(x))
         # if self.training and x.shape[0] > 1:
         #     x = self.ln2(x)
         x = self.dropout(x)
@@ -116,20 +116,20 @@ class Critic(nn.Module):
     def forward(self, x, u):
 
         x = torch.Tensor(x)
-        x = F.leaky_relu(self.conv1(x))
-        x = F.leaky_relu(self.conv2(x))
-        x = F.leaky_relu(self.conv3(x))
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
         x = self.flatten(x)
 
-        state_value = F.leaky_relu(self.state_value1(x))
+        state_value = F.relu(self.state_value1(x))
         state_value = self.dropout(state_value)
 
-        action_value = F.leaky_relu(self.action_value1(u))
+        action_value = F.relu(self.action_value1(u))
         action_value = self.dropout(action_value)
 
         combined_value = torch.cat([state_value, action_value], 1)
 
-        combined_value = F.leaky_relu(self.combined_layer(combined_value))
+        combined_value = F.relu(self.combined_layer(combined_value))
 
         output = self.output_layer(combined_value)
 
