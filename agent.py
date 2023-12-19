@@ -100,10 +100,10 @@ class Agent(object):
 
 
 
-    def train(self, env, max_timesteps, batch_identifier=0, learning_rate=0.0001):
-        self.actor_optimizer = torch.optim.AdamW(self.actor.parameters(), lr=learning_rate, weight_decay=0.001)
-        self.critic1_optimizer = torch.optim.AdamW(self.critic1.parameters(), lr=learning_rate, weight_decay=0.001)
-        self.critic2_optimizer = torch.optim.AdamW(self.critic1.parameters(), lr=learning_rate, weight_decay=0.001)
+    def train(self, env, max_timesteps, actor_learning_rate, critic_learning_rate, weight_decay, batch_identifier):
+        self.actor_optimizer = torch.optim.AdamW(self.actor.parameters(), lr=actor_learning_rate, weight_decay=weight_decay)
+        self.critic1_optimizer = torch.optim.AdamW(self.critic1.parameters(), lr=critic_learning_rate, weight_decay=weight_decay)
+        self.critic2_optimizer = torch.optim.AdamW(self.critic1.parameters(), lr=critic_learning_rate, weight_decay=weight_decay)
 
 
 
