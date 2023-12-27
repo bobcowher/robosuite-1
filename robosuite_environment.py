@@ -49,7 +49,7 @@ class RoboSuiteWrapper(Wrapper):
 
 
     def get_observation(self):
-        observation = self.sim.render(width=self.image_width, height=self.image_height, camera_name="robot0_eye_in_hand")
+        observation = self.sim.render(width=self.image_width, height=self.image_height, camera_name="sideview")
         # observation = self.sim.render(width=self.image_width, height=self.image_height, camera_name="sideview")
 
         # Reshape from a flat tensor to an image.

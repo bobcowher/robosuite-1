@@ -145,12 +145,13 @@ class Agent(object):
                     print(f"Total Timesteps: {total_timesteps} Episode Num: {episode_num} Reward: {episode_reward} "
                           f"Learning Rate: {critic1_learning_rate:.10f}:{actor_learning_rate:.10f} Batch: {batch_identifier}")
 
-                    self.learn(replay_buffer=self.replay_buffer, epochs=10)
-                    stats['Returns'].append(episode_reward)
+                    actor_loss, critic_loss = self.learn(replay_buffer=self.replay_buffer, epochs=10)
                     # writer.add_scalar(f'{self.env_name} - Learning Rate: {batch_identifier}', actor_learning_rate, total_timesteps)
                     writer.add_scalar(f'{self.env_name} - Explore Noise: {batch_identifier}', self.expl_noise, total_timesteps)
                     writer.add_scalar(f'{self.env_name} - Policy Noise: {batch_identifier}', self.policy_noise, total_timesteps)
                     writer.add_scalar(f'{self.env_name} - Returns: {batch_identifier}', episode_reward, total_timesteps)
+                    writer.add_scalar(f'{self.env_name} - Actor Loss: {batch_identifier}', actor_loss, total_timesteps)
+                    writer.add_scalar(f'{self.env_name} - Critic Loss: {batch_identifier}', critic_loss, total_timesteps)
 
 
                     # writer.add_scalar(f'{self.env_name} - Returns Per Step: {batch_identifier}', (episode_reward / episode_timesteps), total_timesteps)
@@ -291,6 +292,12 @@ class Agent(object):
             total_timesteps += 1
 
     def learn(self, replay_buffer: ReplayBuffer, epochs):
+        average_critic_loss_list = []
+        average_actor_loss_list = []
+
+        # If batch size isn't large enough to sample, exit here.
+        if not replay_buffer.can_sample(self.batch_size):
+            return 0, 0
 
         for epoch in range(epochs):
             if replay_buffer.can_sample(self.batch_size):
@@ -362,16 +369,14 @@ class Agent(object):
                     for target_param, main_param in zip(self.actor_target.parameters(), self.actor.parameters()):
                         target_param.data.copy_(self.tau * main_param.data + (1.0 - self.tau) * target_param.data)
 
-                    # This would clip gradients, which doesn't seem to help
-                    max_grad_norm = 1
-                    # torch.nn.utils.clip_grad_norm_(self.actor.parameters(), max_grad_norm)
-                    # torch.nn.utils.clip_grad_norm_(self.actor_target.parameters(), max_grad_norm)
-                    # torch.nn.utils.clip_grad_norm_(self.critic1.parameters(), max_grad_norm)
-                    # torch.nn.utils.clip_grad_norm_(self.critic1_target.parameters(), max_grad_norm)
-                    # torch.nn.utils.clip_grad_norm_(self.critic2.parameters(), max_grad_norm)
-                    # torch.nn.utils.clip_grad_norm_(self.critic2_target.parameters(), max_grad_norm)
+                # Append loss values for later calculation of averages
+                average_critic_loss_list.append(critic_loss.item())
+                average_actor_loss_list.append(actor_loss.item())
 
-            # Making a save method to save a trained model
+        average_critic_loss = sum(average_critic_loss_list) / len(average_critic_loss_list)
+        average_actor_loss = sum(average_actor_loss_list) / len(average_actor_loss_list)
+
+        return average_actor_loss, average_critic_loss
 
 
     def save(self, iteration="latest", folder=""):
